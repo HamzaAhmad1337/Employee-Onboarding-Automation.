@@ -39,6 +39,10 @@ def create_employee(
         if not manager:
             raise HTTPException(status_code=400, detail="manager_id does not reference a manager")
 
+    linked_user = (
+        db.query(User).filter(User.email == payload.email, User.role == Role.NEW_HIRE).first()
+    )
+
     employee = Employee(
         full_name=payload.full_name,
         email=payload.email,
@@ -47,6 +51,7 @@ def create_employee(
         start_date=payload.start_date,
         manager_id=payload.manager_id,
         template_id=payload.template_id,
+        user_id=linked_user.id if linked_user else None,
     )
     db.add(employee)
     db.flush()

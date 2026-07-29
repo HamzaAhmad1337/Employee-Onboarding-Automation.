@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { Template } from "../types";
+import type { Template, User } from "../types";
 
 export default function NewEmployeeForm({
   templates,
@@ -16,8 +16,13 @@ export default function NewEmployeeForm({
   const [startDate, setStartDate] = useState("");
   const [templateId, setTemplateId] = useState<string>("");
   const [managerId, setManagerId] = useState<string>("");
+  const [managers, setManagers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api.get<User[]>("/auth/users", { params: { role: "manager" } }).then((res) => setManagers(res.data));
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -71,8 +76,15 @@ export default function NewEmployeeForm({
           />
         </label>
         <label>
-          Manager ID (optional)
-          <input value={managerId} onChange={(e) => setManagerId(e.target.value)} />
+          Manager
+          <select value={managerId} onChange={(e) => setManagerId(e.target.value)}>
+            <option value="">No manager</option>
+            {managers.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.full_name} ({m.email})
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Onboarding template

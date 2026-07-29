@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models.models import Role, User
+from app.models.models import Employee, Role, User
 from app.schemas.schemas import LoginRequest, Token, UserCreate, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -12,23 +12,23 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
-    # First user in the system may self-register as hr_admin (bootstrap).
-    # All subsequent registrations require an existing hr_admin to create the account.
-    existing = db.query(User).filter(User.email == payload.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    any_user_exists = db.query(User).first() is not None
-    if any_user_exists and payload.role == Role.HR_ADMIN:
+    """Bootstrap-only: creates the very first hr_admin account. Once any account
+    exists, self-registration is closed entirely — every other account (manager,
+    it, new_hire, or additional hr_admins) must be created by an existing
+    hr_admin via POST /auth/users, which requires an authenticated bearer token.
+    Open self-registration for arbitrary roles would let anyone grant themselves
+    the "it" role and read every employee's onboarding data.
+    """
+    if db.query(User).first() is not None:
         raise HTTPException(
             status_code=403,
-            detail="hr_admin accounts must be created by an existing hr_admin",
+            detail="Registration is closed. Ask an hr_admin to create your account.",
         )
 
     user = User(
         email=payload.email,
         full_name=payload.full_name,
-        role=payload.role,
+        role=Role.HR_ADMIN,
         hashed_password=hash_password(payload.password),
     )
     db.add(user)
@@ -59,7 +59,12 @@ def create_user_as_admin(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles(Role.HR_ADMIN)),
 ):
-    """HR admins create accounts for managers, IT staff, and new hires."""
+    """HR admins create accounts for managers, IT staff, and new hires.
+
+    When the new account is a new_hire, it is auto-linked to the Employee
+    onboarding record with the matching email (if one exists), so the new
+    hire can actually see their own tasks and progress after logging in.
+    """
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -70,6 +75,26 @@ def create_user_as_admin(
         hashed_password=hash_password(payload.password),
     )
     db.add(user)
+    db.flush()
+
+    if payload.role == Role.NEW_HIRE:
+        employee = db.query(Employee).filter(Employee.email == payload.email).first()
+        if employee is not None:
+            employee.user_id = user.id
+
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/users", response_model=list[UserOut])
+def list_users(
+    role: Role | None = None,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_roles(Role.HR_ADMIN)),
+):
+    """Used by HR to populate role pickers (e.g. choosing a manager for a new hire)."""
+    query = db.query(User)
+    if role is not None:
+        query = query.filter(User.role == role)
+    return query.all()
