@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 from app.models.models import Role, TaskStatus
 
@@ -12,7 +12,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(min_length=8)
 
 
 class UserOut(UserBase):
@@ -110,7 +110,6 @@ class DocumentOut(BaseModel):
     id: int
     employee_id: int
     name: str
-    file_path: str
     signed: bool
     uploaded_at: datetime
 

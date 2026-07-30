@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,6 +8,13 @@ from app.core.database import Base, engine
 from app.routers import auth, documents, employees, notifications, templates
 
 Base.metadata.create_all(bind=engine)
+
+if settings.jwt_secret == "change-me-in-production":
+    logging.getLogger("uvicorn.error").warning(
+        "JWT_SECRET is not set - using the insecure default. Anyone who reads "
+        "the source can forge valid tokens for any user, including hr_admin. "
+        "Set the JWT_SECRET environment variable before deploying."
+    )
 
 app = FastAPI(title=settings.app_name)
 

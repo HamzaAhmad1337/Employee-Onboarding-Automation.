@@ -2,6 +2,7 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -62,3 +63,26 @@ def list_documents(
     employee = _get_employee_or_404(db, employee_id)
     _assert_can_view_employee(employee, current_user)
     return db.query(Document).filter(Document.employee_id == employee_id).all()
+
+
+@router.get("/{document_id}/download")
+def download_document(
+    employee_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    employee = _get_employee_or_404(db, employee_id)
+    _assert_can_view_employee(employee, current_user)
+
+    doc = (
+        db.query(Document)
+        .filter(Document.id == document_id, Document.employee_id == employee_id)
+        .first()
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not os.path.isfile(doc.file_path):
+        raise HTTPException(status_code=404, detail="File is missing from storage")
+
+    return FileResponse(doc.file_path, filename=doc.name)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.deps import require_roles
-from app.models.models import OnboardingTemplate, Role, TaskDefinition, User
+from app.models.models import Employee, OnboardingTemplate, Role, TaskDefinition, User
 from app.schemas.schemas import TemplateCreate, TemplateOut
 
 router = APIRouter(prefix="/templates", tags=["templates"])
@@ -65,5 +65,11 @@ def delete_template(
     template = db.query(OnboardingTemplate).filter(OnboardingTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+
+    # Employees already onboarded from this template keep their instantiated
+    # tasks regardless; just detach the now-dangling template reference so it
+    # doesn't point at a deleted row (SQLite doesn't enforce FKs by default).
+    db.query(Employee).filter(Employee.template_id == template_id).update({"template_id": None})
+
     db.delete(template)
     db.commit()

@@ -38,6 +38,23 @@ export default function EmployeeDetail() {
     }
   }
 
+  async function handleDownload(doc: Document) {
+    setError(null);
+    try {
+      const res = await api.get(`/employees/${id}/documents/${doc.id}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.name;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError("Could not download document");
+    }
+  }
+
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -129,7 +146,10 @@ export default function EmployeeDetail() {
         <ul className="doc-list">
           {documents.map((d) => (
             <li key={d.id}>
-              {d.name} {d.signed && <span className="tag">signed</span>}
+              <button className="link-btn" onClick={() => handleDownload(d)}>
+                {d.name}
+              </button>{" "}
+              {d.signed && <span className="tag">signed</span>}
             </li>
           ))}
           {documents.length === 0 && <li className="muted">No documents uploaded yet.</li>}
