@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +10,7 @@ const STATUS_OPTIONS: TaskStatus[] = ["pending", "in_progress", "done", "blocked
 export default function EmployeeDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -76,6 +77,18 @@ export default function EmployeeDetail() {
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm(`Remove ${employee?.full_name} and all their onboarding data? This can't be undone.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/employees/${id}`);
+      navigate("/");
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Could not delete employee");
+    }
+  }
+
   if (!employee) {
     return (
       <Layout>
@@ -97,6 +110,11 @@ export default function EmployeeDetail() {
             Starts {new Date(employee.start_date).toLocaleDateString()}
           </p>
         </div>
+        {user?.role === "hr_admin" && (
+          <button className="secondary" onClick={handleDelete}>
+            Delete employee
+          </button>
+        )}
       </div>
 
       {error && <div className="error-banner">{error}</div>}

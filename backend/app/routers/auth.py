@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.models import Employee, Role, User
-from app.schemas.schemas import LoginRequest, Token, UserCreate, UserOut
+from app.schemas.schemas import LoginRequest, Token, UserCreate, UserOut, UserUpdate
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -98,3 +98,34 @@ def list_users(
     if role is not None:
         query = query.filter(User.role == role)
     return query.all()
+
+
+@router.patch("/users/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_roles(Role.HR_ADMIN)),
+):
+    """Deactivate/reactivate an account or change its role (offboarding, role
+    changes). An hr_admin cannot deactivate or demote their own account -
+    otherwise the last admin could lock themselves out with no way back in.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.id == admin.id:
+        if payload.is_active is False:
+            raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
+        if payload.role is not None and payload.role != Role.HR_ADMIN:
+            raise HTTPException(status_code=400, detail="You cannot demote your own account")
+
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+    if payload.role is not None:
+        user.role = payload.role
+
+    db.commit()
+    db.refresh(user)
+    return user

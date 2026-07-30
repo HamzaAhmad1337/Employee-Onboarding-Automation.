@@ -36,6 +36,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <nav>
           <Link to="/">Dashboard</Link>
           {user?.role === "hr_admin" && <Link to="/templates">Templates</Link>}
+          {user?.role === "hr_admin" && <Link to="/team">Team</Link>}
         </nav>
         <div className="header-right">
           <div className="notif-wrap">

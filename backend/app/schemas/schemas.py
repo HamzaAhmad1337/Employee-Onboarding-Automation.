@@ -69,6 +69,19 @@ class EmployeeCreate(BaseModel):
     manager_id: int | None = None
 
 
+class EmployeeUpdate(BaseModel):
+    full_name: str | None = None
+    job_title: str | None = None
+    department: str | None = None
+    start_date: datetime | None = None
+    manager_id: int | None = None
+
+
+class UserUpdate(BaseModel):
+    is_active: bool | None = None
+    role: Role | None = None
+
+
 class OnboardingTaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import EmployeeDetail from "./pages/EmployeeDetail";
 import Templates from "./pages/Templates";
+import Team from "./pages/Team";
 
 export default function App() {
   return (
@@ -33,6 +34,14 @@ export default function App() {
             element={
               <ProtectedRoute allow={["hr_admin"]}>
                 <Templates />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/team"
+            element={
+              <ProtectedRoute allow={["hr_admin"]}>
+                <Team />
               </ProtectedRoute>
             }
           />

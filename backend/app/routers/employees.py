@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +15,13 @@ from app.models.models import (
     TaskStatus,
     User,
 )
-from app.schemas.schemas import EmployeeCreate, EmployeeOut, EmployeeProgress, TaskStatusUpdate
+from app.schemas.schemas import (
+    EmployeeCreate,
+    EmployeeOut,
+    EmployeeProgress,
+    EmployeeUpdate,
+    TaskStatusUpdate,
+)
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -136,6 +143,45 @@ def get_employee(
     employee = _get_employee_or_404(db, employee_id)
     _assert_can_view_employee(employee, current_user)
     return employee
+
+
+@router.patch("/{employee_id}", response_model=EmployeeOut)
+def update_employee(
+    employee_id: int,
+    payload: EmployeeUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_roles(Role.HR_ADMIN)),
+):
+    employee = _get_employee_or_404(db, employee_id)
+
+    if payload.manager_id is not None:
+        manager = (
+            db.query(User).filter(User.id == payload.manager_id, User.role == Role.MANAGER).first()
+        )
+        if not manager:
+            raise HTTPException(status_code=400, detail="manager_id does not reference a manager")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(employee, field, value)
+
+    db.commit()
+    db.refresh(employee)
+    return employee
+
+
+@router.delete("/{employee_id}", status_code=204)
+def delete_employee(
+    employee_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_roles(Role.HR_ADMIN)),
+):
+    employee = _get_employee_or_404(db, employee_id)
+    for doc in employee.documents:
+        if os.path.isfile(doc.file_path):
+            os.remove(doc.file_path)
+    db.delete(employee)
+    db.commit()
 
 
 @router.get("/{employee_id}/progress", response_model=EmployeeProgress)
