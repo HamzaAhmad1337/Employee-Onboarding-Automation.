@@ -362,6 +362,15 @@ a {
   justify-content: center;
 }
 
+.notif-mark-all {
+  display: block;
+  width: 100%;
+  text-align: right;
+  padding: 8px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
 .notif-dropdown {
   position: absolute;
   right: 0;

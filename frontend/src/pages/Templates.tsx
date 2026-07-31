@@ -13,6 +13,7 @@ interface DraftTask {
 
 export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [department, setDepartment] = useState("");
   const [tasks, setTasks] = useState<DraftTask[]>([
@@ -41,23 +42,67 @@ export default function Templates() {
     setTasks((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setDepartment("");
+    setTasks([{ title: "", assigned_role: "it", due_offset_days: 0 }]);
+  }
+
+  function startEdit(t: Template) {
+    setEditingId(t.id);
+    setName(t.name);
+    setDepartment(t.department || "");
+    setTasks(
+      t.task_definitions
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((td) => ({
+          title: td.title,
+          assigned_role: td.assigned_role,
+          due_offset_days: td.due_offset_days,
+        }))
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const body = {
+      name,
+      department: department || null,
+      task_definitions: tasks
+        .filter((t) => t.title.trim())
+        .map((t, i) => ({ ...t, order: i })),
+    };
     try {
-      await api.post("/templates", {
-        name,
-        department: department || null,
-        task_definitions: tasks
-          .filter((t) => t.title.trim())
-          .map((t, i) => ({ ...t, order: i })),
-      });
-      setName("");
-      setDepartment("");
-      setTasks([{ title: "", assigned_role: "it", due_offset_days: 0 }]);
+      if (editingId !== null) {
+        await api.put(`/templates/${editingId}`, body);
+      } else {
+        await api.post("/templates", body);
+      }
+      resetForm();
       load();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to create template");
+      setError(
+        err.response?.data?.detail ||
+          `Failed to ${editingId !== null ? "update" : "create"} template`
+      );
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!window.confirm("Delete this template? Employees already using it keep their tasks.")) {
+      return;
+    }
+    setError(null);
+    try {
+      await api.delete(`/templates/${id}`);
+      if (editingId === id) resetForm();
+      load();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to delete template");
     }
   }
 
@@ -111,7 +156,12 @@ export default function Templates() {
           + Add task
         </button>
         <div>
-          <button type="submit">Save template</button>
+          <button type="submit">{editingId !== null ? "Update template" : "Save template"}</button>
+          {editingId !== null && (
+            <button type="button" className="link-btn" onClick={resetForm}>
+              Cancel edit
+            </button>
+          )}
         </div>
       </form>
 
@@ -119,9 +169,19 @@ export default function Templates() {
         <h2>Existing Templates</h2>
         {templates.map((t) => (
           <div key={t.id} className="template-card">
-            <h3>
-              {t.name} {t.department && <span className="muted">· {t.department}</span>}
-            </h3>
+            <div className="page-header">
+              <h3>
+                {t.name} {t.department && <span className="muted">· {t.department}</span>}
+              </h3>
+              <div>
+                <button className="secondary" onClick={() => startEdit(t)}>
+                  Edit
+                </button>{" "}
+                <button className="link-btn" onClick={() => handleDelete(t.id)}>
+                  Delete
+                </button>
+              </div>
+            </div>
             <ul>
               {t.task_definitions.map((td) => (
                 <li key={td.id}>

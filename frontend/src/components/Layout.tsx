@@ -38,6 +38,11 @@ export default function Layout({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }
 
+  async function markAllRead() {
+    await api.post("/notifications/read-all");
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -56,6 +61,11 @@ export default function Layout({ children }: { children: ReactNode }) {
             </button>
             {showNotifs && (
               <div className="notif-dropdown">
+                {unreadCount > 0 && (
+                  <button className="link-btn notif-mark-all" onClick={markAllRead}>
+                    Mark all as read
+                  </button>
+                )}
                 {notifications.length === 0 && <div className="notif-empty">No notifications</div>}
                 {notifications.map((n) => (
                   <div

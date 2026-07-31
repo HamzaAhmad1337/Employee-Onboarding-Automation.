@@ -56,6 +56,34 @@ def get_template(
     return template
 
 
+@router.put("/{template_id}", response_model=TemplateOut)
+def update_template(
+    template_id: int,
+    payload: TemplateCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_roles(Role.HR_ADMIN)),
+):
+    """Full replace of a template's name/department/task list.
+
+    Employees already onboarded from this template keep the tasks that were
+    already instantiated for them - only the template's own blueprint (used
+    for *future* onboardings) changes.
+    """
+    template = db.query(OnboardingTemplate).filter(OnboardingTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    template.name = payload.name
+    template.department = payload.department
+    db.query(TaskDefinition).filter(TaskDefinition.template_id == template_id).delete()
+    for td in payload.task_definitions:
+        db.add(TaskDefinition(template_id=template.id, **td.model_dump()))
+
+    db.commit()
+    db.refresh(template)
+    return template
+
+
 @router.delete("/{template_id}", status_code=204)
 def delete_template(
     template_id: int,
