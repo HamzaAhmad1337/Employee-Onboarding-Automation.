@@ -138,7 +138,10 @@ export default function EmployeeDetail() {
                 <tr key={task.id}>
                   <td>{task.title}</td>
                   <td>{task.assigned_role.replace("_", " ")}</td>
-                  <td>{task.due_date ? new Date(task.due_date).toLocaleDateString() : "—"}</td>
+                  <td>
+                    {task.due_date ? new Date(task.due_date).toLocaleDateString() : "—"}
+                    {task.is_overdue && <span className="tag tag-overdue">overdue</span>}
+                  </td>
                   <td>
                     <select
                       value={task.status}

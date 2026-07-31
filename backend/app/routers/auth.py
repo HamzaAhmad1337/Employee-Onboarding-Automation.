@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,9 @@ from app.models.models import Employee, Role, User
 from app.schemas.schemas import LoginRequest, Token, UserCreate, UserOut, UserUpdate
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -40,10 +45,36 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
+
+    # Run the hash even on a missing user so response timing doesn't reveal
+    # whether the email exists (hash_password/verify_password cost is what
+    # makes login brute-forceable slow in the first place).
+    if user is None:
+        verify_password(payload.password, hash_password("dummy-password"))
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    if user.locked_until is not None and user.locked_until > datetime.utcnow():
+        raise HTTPException(
+            status_code=403,
+            detail=f"Account temporarily locked due to repeated failed logins. "
+            f"Try again after {user.locked_until.isoformat()}Z.",
+        )
+
+    if not verify_password(payload.password, user.hashed_password):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
+            user.locked_until = datetime.utcnow() + timedelta(minutes=LOCKOUT_MINUTES)
+            user.failed_login_attempts = 0
+        db.commit()
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
+
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
+
     token = create_access_token(subject=user.email, role=user.role.value)
     return Token(access_token=token, user=user)
 

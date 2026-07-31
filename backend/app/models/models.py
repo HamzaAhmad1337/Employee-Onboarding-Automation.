@@ -44,6 +44,8 @@ class User(Base):
     role = Column(Enum(Role), nullable=False, default=Role.NEW_HIRE)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utcnow)
+    failed_login_attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime, nullable=True)
 
     employee_profile = relationship(
         "Employee", back_populates="user", uselist=False, foreign_keys="Employee.user_id"
@@ -117,6 +119,15 @@ class OnboardingTask(Base):
     order = Column(Integer, default=0)
 
     employee = relationship("Employee", back_populates="tasks")
+
+    @property
+    def is_overdue(self) -> bool:
+        if self.due_date is None or self.status == TaskStatus.DONE:
+            return False
+        # due_date round-trips through SQLite as a naive UTC datetime, so
+        # compare against naive UTC "now" rather than an aware datetime -
+        # mixing the two raises TypeError.
+        return self.due_date < datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Document(Base):

@@ -18,6 +18,7 @@ export interface OnboardingTask {
   due_date: string | null;
   completed_at: string | null;
   order: number;
+  is_overdue: boolean;
 }
 
 export interface Employee {

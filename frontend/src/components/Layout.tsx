@@ -12,7 +12,18 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    api.get("/notifications").then((res) => setNotifications(res.data));
+    let cancelled = false;
+    function poll() {
+      api.get("/notifications").then((res) => {
+        if (!cancelled) setNotifications(res.data);
+      });
+    }
+    poll();
+    const interval = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [user]);
 
   function handleLogout() {

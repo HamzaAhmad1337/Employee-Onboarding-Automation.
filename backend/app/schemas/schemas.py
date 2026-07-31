@@ -1,11 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 
 from app.models.models import Role, TaskStatus
 
 
-class UserBase(BaseModel):
+class _LowercaseEmailMixin(BaseModel):
+    @field_validator("email", mode="after", check_fields=False)
+    @classmethod
+    def _lowercase_email(cls, value: str) -> str:
+        return value.lower()
+
+
+class UserBase(_LowercaseEmailMixin):
     email: EmailStr
     full_name: str
     role: Role
@@ -27,7 +34,7 @@ class Token(BaseModel):
     user: UserOut
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(_LowercaseEmailMixin):
     email: EmailStr
     password: str
 
@@ -59,7 +66,7 @@ class TemplateOut(BaseModel):
     task_definitions: list[TaskDefinitionOut] = []
 
 
-class EmployeeCreate(BaseModel):
+class EmployeeCreate(_LowercaseEmailMixin):
     full_name: str
     email: EmailStr
     job_title: str | None = None
@@ -92,6 +99,7 @@ class OnboardingTaskOut(BaseModel):
     due_date: datetime | None
     completed_at: datetime | None
     order: int
+    is_overdue: bool
 
 
 class TaskStatusUpdate(BaseModel):

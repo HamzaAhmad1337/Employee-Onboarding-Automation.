@@ -67,9 +67,17 @@ export default function Dashboard() {
       <div className="card-grid">
         {employees.map((emp) => {
           const progress = progressById[emp.id];
+          const overdueCount = emp.tasks.filter((t) => t.is_overdue).length;
           return (
             <Link to={`/employees/${emp.id}`} key={emp.id} className="employee-card">
-              <h3>{emp.full_name}</h3>
+              <h3>
+                {emp.full_name}
+                {overdueCount > 0 && (
+                  <span className="tag-overdue">
+                    {overdueCount} overdue
+                  </span>
+                )}
+              </h3>
               <p className="muted">
                 {emp.job_title || "—"} {emp.department ? `· ${emp.department}` : ""}
               </p>
