@@ -42,9 +42,15 @@ def create_employee(
         raise HTTPException(status_code=400, detail="Employee with this email already exists")
 
     if payload.manager_id is not None:
-        manager = db.query(User).filter(User.id == payload.manager_id, User.role == Role.MANAGER).first()
+        manager = (
+            db.query(User)
+            .filter(User.id == payload.manager_id, User.role == Role.MANAGER, User.is_active)
+            .first()
+        )
         if not manager:
-            raise HTTPException(status_code=400, detail="manager_id does not reference a manager")
+            raise HTTPException(
+                status_code=400, detail="manager_id does not reference an active manager"
+            )
 
     linked_user = (
         db.query(User).filter(User.email == payload.email, User.role == Role.NEW_HIRE).first()
@@ -156,10 +162,14 @@ def update_employee(
 
     if payload.manager_id is not None:
         manager = (
-            db.query(User).filter(User.id == payload.manager_id, User.role == Role.MANAGER).first()
+            db.query(User)
+            .filter(User.id == payload.manager_id, User.role == Role.MANAGER, User.is_active)
+            .first()
         )
         if not manager:
-            raise HTTPException(status_code=400, detail="manager_id does not reference a manager")
+            raise HTTPException(
+                status_code=400, detail="manager_id does not reference an active manager"
+            )
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():

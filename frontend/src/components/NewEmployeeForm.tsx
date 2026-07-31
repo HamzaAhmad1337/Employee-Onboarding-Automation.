@@ -21,7 +21,9 @@ export default function NewEmployeeForm({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.get<User[]>("/auth/users", { params: { role: "manager" } }).then((res) => setManagers(res.data));
+    api
+      .get<User[]>("/auth/users", { params: { role: "manager" } })
+      .then((res) => setManagers(res.data.filter((m) => m.is_active)));
   }, []);
 
   async function handleSubmit(e: FormEvent) {

@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   async function loadEmployees() {
     setLoading(true);
@@ -64,8 +65,34 @@ export default function Dashboard() {
       {loading && <p>Loading...</p>}
       {!loading && employees.length === 0 && <p className="empty-state">Nothing here yet.</p>}
 
-      <div className="card-grid">
-        {employees.map((emp) => {
+      {!loading && employees.length > 0 && (
+        <input
+          className="search-input"
+          type="search"
+          placeholder="Search by name or department..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      )}
+
+      {(() => {
+        const query = search.trim().toLowerCase();
+        const filtered = query
+          ? employees.filter(
+              (emp) =>
+                emp.full_name.toLowerCase().includes(query) ||
+                emp.department?.toLowerCase().includes(query) ||
+                emp.job_title?.toLowerCase().includes(query)
+            )
+          : employees;
+
+        if (!loading && employees.length > 0 && filtered.length === 0) {
+          return <p className="empty-state">No employees match "{search}".</p>;
+        }
+
+        return (
+          <div className="card-grid">
+            {filtered.map((emp) => {
           const progress = progressById[emp.id];
           const overdueCount = emp.tasks.filter((t) => t.is_overdue).length;
           return (
@@ -92,8 +119,10 @@ export default function Dashboard() {
               </p>
             </Link>
           );
-        })}
-      </div>
+            })}
+          </div>
+        );
+      })()}
     </Layout>
   );
 }

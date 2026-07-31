@@ -1,8 +1,15 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, StringConstraints, field_validator
 
 from app.models.models import Role, TaskStatus
+
+# Trims surrounding whitespace and rejects empty/whitespace-only values for
+# free-text fields where that would otherwise slip through (e.g. a name of
+# "   " passes a plain `str` required-field check but is not a real name).
+# Never applied to passwords, which must be used byte-for-byte as typed.
+NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class _LowercaseEmailMixin(BaseModel):
@@ -14,7 +21,7 @@ class _LowercaseEmailMixin(BaseModel):
 
 class UserBase(_LowercaseEmailMixin):
     email: EmailStr
-    full_name: str
+    full_name: NonBlankStr
     role: Role
 
 
@@ -40,7 +47,7 @@ class LoginRequest(_LowercaseEmailMixin):
 
 
 class TaskDefinitionIn(BaseModel):
-    title: str
+    title: NonBlankStr
     description: str | None = None
     assigned_role: Role
     due_offset_days: int = 0
@@ -53,7 +60,7 @@ class TaskDefinitionOut(TaskDefinitionIn):
 
 
 class TemplateCreate(BaseModel):
-    name: str
+    name: NonBlankStr
     department: str | None = None
     task_definitions: list[TaskDefinitionIn] = []
 
@@ -67,7 +74,7 @@ class TemplateOut(BaseModel):
 
 
 class EmployeeCreate(_LowercaseEmailMixin):
-    full_name: str
+    full_name: NonBlankStr
     email: EmailStr
     job_title: str | None = None
     department: str | None = None
@@ -77,7 +84,7 @@ class EmployeeCreate(_LowercaseEmailMixin):
 
 
 class EmployeeUpdate(BaseModel):
-    full_name: str | None = None
+    full_name: NonBlankStr | None = None
     job_title: str | None = None
     department: str | None = None
     start_date: datetime | None = None

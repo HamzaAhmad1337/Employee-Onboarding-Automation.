@@ -179,6 +179,12 @@ a {
   margin-bottom: 20px;
 }
 
+.search-input {
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 16px;
+}
+
 .muted {
   color: var(--text);
   opacity: 0.75;
