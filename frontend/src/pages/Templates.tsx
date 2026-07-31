@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
 import type { Role, Template } from "../types";
@@ -108,10 +109,20 @@ export default function Templates() {
 
   return (
     <Layout>
-      <h1>Onboarding Templates</h1>
+      <div className="page-header">
+        <div>
+          <h1>Onboarding Templates</h1>
+          <p className="muted" style={{ marginTop: 4 }}>
+            Reusable checklists HR assigns to new hires
+          </p>
+        </div>
+      </div>
       {error && <div className="error-banner">{error}</div>}
 
       <form className="panel-form" onSubmit={handleSubmit}>
+        <h2 style={{ marginBottom: 0 }}>
+          {editingId !== null ? "Edit Template" : "New Template"}
+        </h2>
         <div className="form-grid">
           <label>
             Template name
@@ -153,10 +164,11 @@ export default function Templates() {
           </div>
         ))}
         <button type="button" className="secondary" onClick={addTaskRow}>
-          + Add task
+          <Plus size={14} style={{ marginRight: 5, verticalAlign: -2 }} />
+          Add task
         </button>
         <div>
-          <button type="submit">{editingId !== null ? "Update template" : "Save template"}</button>
+          <button type="submit">{editingId !== null ? "Update template" : "Save template"}</button>{" "}
           {editingId !== null && (
             <button type="button" className="link-btn" onClick={resetForm}>
               Cancel edit
@@ -167,25 +179,34 @@ export default function Templates() {
 
       <section className="panel">
         <h2>Existing Templates</h2>
+        {templates.length === 0 && (
+          <p className="empty-state">No templates yet — create one above to get started.</p>
+        )}
         {templates.map((t) => (
           <div key={t.id} className="template-card">
             <div className="page-header">
               <h3>
                 {t.name} {t.department && <span className="muted">· {t.department}</span>}
               </h3>
-              <div>
+              <div className="header-actions">
                 <button className="secondary" onClick={() => startEdit(t)}>
+                  <Pencil size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
                   Edit
-                </button>{" "}
-                <button className="link-btn" onClick={() => handleDelete(t.id)}>
+                </button>
+                <button className="secondary danger-hover" onClick={() => handleDelete(t.id)}>
+                  <Trash2 size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
                   Delete
                 </button>
               </div>
             </div>
             <ul>
-              {t.task_definitions.map((td) => (
+              {t.task_definitions
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((td) => (
                 <li key={td.id}>
-                  {td.title} — {td.assigned_role.replace("_", " ")} (day {td.due_offset_days})
+                  {td.title} · <span className="pill pill-role">{td.assigned_role.replace("_", " ")}</span>{" "}
+                  day {td.due_offset_days}
                 </li>
               ))}
             </ul>

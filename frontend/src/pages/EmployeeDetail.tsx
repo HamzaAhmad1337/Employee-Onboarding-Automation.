@@ -1,11 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { FileText, Pencil, Trash2, Upload } from "lucide-react";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { Document, Employee, TaskStatus, User } from "../types";
 
 const STATUS_OPTIONS: TaskStatus[] = ["pending", "in_progress", "done", "blocked"];
+
+function initialsOf(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -139,7 +150,8 @@ export default function EmployeeDetail() {
   if (!employee) {
     return (
       <Layout>
-        <p>Loading...</p>
+        <div className="skeleton skeleton-line" style={{ width: 220, height: 26, marginBottom: 10 }} />
+        <div className="skeleton skeleton-line" style={{ width: 320 }} />
       </Layout>
     );
   }
@@ -147,23 +159,41 @@ export default function EmployeeDetail() {
   const canEditTask = (assignedRole: string) =>
     user?.role === "hr_admin" || user?.role === assignedRole;
 
+  const total = employee.tasks.length;
+  const done = employee.tasks.filter((t) => t.status === "done").length;
+
   return (
     <Layout>
       <div className="page-header">
-        <div>
-          <h1>{employee.full_name}</h1>
-          <p className="muted">
-            {employee.job_title || "—"} {employee.department ? `· ${employee.department}` : ""} ·
-            Starts {new Date(employee.start_date).toLocaleDateString()}
-          </p>
+        <div className="employee-header">
+          <span className="avatar avatar-lg">{initialsOf(employee.full_name)}</span>
+          <div>
+            <h1>{employee.full_name}</h1>
+            <p className="muted">
+              {employee.job_title || "—"} {employee.department ? `· ${employee.department}` : ""} ·
+              Starts {new Date(employee.start_date).toLocaleDateString()}
+            </p>
+            {total > 0 && (
+              <div className="employee-header-progress">
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${(done / total) * 100}%` }} />
+                </div>
+                <span className="muted small">
+                  {done}/{total} tasks done
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         {user?.role === "hr_admin" && !editing && (
-          <div>
+          <div className="header-actions">
             <button className="secondary" onClick={startEdit}>
-              Edit details
-            </button>{" "}
-            <button className="secondary" onClick={handleDelete}>
-              Delete employee
+              <Pencil size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+              Edit
+            </button>
+            <button className="secondary danger-hover" onClick={handleDelete}>
+              <Trash2 size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+              Delete
             </button>
           </div>
         )}
@@ -246,11 +276,13 @@ export default function EmployeeDetail() {
               .sort((a, b) => a.order - b.order)
               .map((task) => (
                 <tr key={task.id}>
-                  <td>{task.title}</td>
-                  <td>{task.assigned_role.replace("_", " ")}</td>
+                  <td className="task-title-cell">{task.title}</td>
+                  <td>
+                    <span className="pill pill-role">{task.assigned_role.replace("_", " ")}</span>
+                  </td>
                   <td>
                     {task.due_date ? new Date(task.due_date).toLocaleDateString() : "—"}
-                    {task.is_overdue && <span className="tag tag-overdue">overdue</span>}
+                    {task.is_overdue && <span className="tag-overdue">overdue</span>}
                   </td>
                   <td>
                     <select
@@ -276,16 +308,21 @@ export default function EmployeeDetail() {
         <h2>Documents</h2>
         <ul className="doc-list">
           {documents.map((d) => (
-            <li key={d.id}>
+            <li key={d.id} className="doc-item">
+              <FileText size={16} className="muted" />
               <button className="link-btn" onClick={() => handleDownload(d)}>
                 {d.name}
-              </button>{" "}
+              </button>
               {d.signed && <span className="tag">signed</span>}
+              <span className="muted small doc-date">
+                {new Date(d.uploaded_at).toLocaleDateString()}
+              </span>
             </li>
           ))}
-          {documents.length === 0 && <li className="muted">No documents uploaded yet.</li>}
+          {documents.length === 0 && <p className="muted small">No documents uploaded yet.</p>}
         </ul>
         <label className="upload-btn">
+          <Upload size={15} />
           {uploading ? "Uploading..." : "Upload document"}
           <input type="file" onChange={handleUpload} disabled={uploading} hidden />
         </label>

@@ -1,10 +1,28 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, Search, UserPlus, Users } from "lucide-react";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { Employee, EmployeeProgress, Template } from "../types";
 import NewEmployeeForm from "../components/NewEmployeeForm";
+
+const TITLES: Record<string, string> = {
+  hr_admin: "All Onboarding Employees",
+  manager: "Your Team's Onboarding",
+  it: "IT Provisioning Tasks",
+  new_hire: "Your Onboarding",
+};
+
+function initialsOf(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -36,21 +54,67 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  const query = search.trim().toLowerCase();
+  const filtered = query
+    ? employees.filter(
+        (emp) =>
+          emp.full_name.toLowerCase().includes(query) ||
+          emp.department?.toLowerCase().includes(query) ||
+          emp.job_title?.toLowerCase().includes(query)
+      )
+    : employees;
+
+  const totalOverdue = employees.reduce(
+    (sum, e) => sum + e.tasks.filter((t) => t.is_overdue).length,
+    0
+  );
+  const totalTasks = employees.reduce((sum, e) => sum + e.tasks.length, 0);
+  const totalDone = employees.reduce(
+    (sum, e) => sum + e.tasks.filter((t) => t.status === "done").length,
+    0
+  );
+
   return (
     <Layout>
       <div className="page-header">
-        <h1>
-          {user?.role === "hr_admin" && "All Onboarding Employees"}
-          {user?.role === "manager" && "Your Team's Onboarding"}
-          {user?.role === "it" && "IT Provisioning Tasks"}
-          {user?.role === "new_hire" && "Your Onboarding"}
-        </h1>
+        <div>
+          <h1>{TITLES[user?.role || ""] || "Dashboard"}</h1>
+          <p className="muted" style={{ marginTop: 4 }}>
+            {employees.length} {employees.length === 1 ? "person" : "people"} onboarding
+          </p>
+        </div>
         {user?.role === "hr_admin" && (
           <button onClick={() => setShowForm((s) => !s)}>
-            {showForm ? "Cancel" : "+ New Employee"}
+            <UserPlus size={15} style={{ marginRight: 6, verticalAlign: -3 }} />
+            {showForm ? "Cancel" : "New Employee"}
           </button>
         )}
       </div>
+
+      {!loading && employees.length > 0 && (
+        <div className="stat-row">
+          <div className="stat-card">
+            <span className="stat-card-label">
+              <Users size={13} /> Onboarding
+            </span>
+            <span className="stat-card-value">{employees.length}</span>
+          </div>
+          <div className="stat-card success">
+            <span className="stat-card-label">
+              <CheckCircle2 size={13} /> Tasks Done
+            </span>
+            <span className="stat-card-value">
+              {totalDone}/{totalTasks}
+            </span>
+          </div>
+          <div className="stat-card danger">
+            <span className="stat-card-label">
+              <AlertTriangle size={13} /> Overdue
+            </span>
+            <span className="stat-card-value">{totalOverdue}</span>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <NewEmployeeForm
@@ -62,67 +126,72 @@ export default function Dashboard() {
         />
       )}
 
-      {loading && <p>Loading...</p>}
-      {!loading && employees.length === 0 && <p className="empty-state">Nothing here yet.</p>}
-
-      {!loading && employees.length > 0 && (
-        <input
-          className="search-input"
-          type="search"
-          placeholder="Search by name or department..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {loading && (
+        <div className="card-grid">
+          {[1, 2, 3].map((i) => (
+            <div className="employee-card skeleton-card" key={i}>
+              <div className="skeleton skeleton-avatar" />
+              <div className="skeleton skeleton-line" style={{ width: "70%" }} />
+              <div className="skeleton skeleton-line" style={{ width: "45%" }} />
+            </div>
+          ))}
+        </div>
       )}
 
-      {(() => {
-        const query = search.trim().toLowerCase();
-        const filtered = query
-          ? employees.filter(
-              (emp) =>
-                emp.full_name.toLowerCase().includes(query) ||
-                emp.department?.toLowerCase().includes(query) ||
-                emp.job_title?.toLowerCase().includes(query)
-            )
-          : employees;
+      {!loading && employees.length === 0 && (
+        <p className="empty-state">Nothing here yet.</p>
+      )}
 
-        if (!loading && employees.length > 0 && filtered.length === 0) {
-          return <p className="empty-state">No employees match "{search}".</p>;
-        }
+      {!loading && employees.length > 0 && (
+        <div className="search-wrap">
+          <Search size={15} className="search-icon" />
+          <input
+            className="search-input"
+            type="search"
+            placeholder="Search by name or department..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      )}
 
-        return (
-          <div className="card-grid">
-            {filtered.map((emp) => {
-          const progress = progressById[emp.id];
-          const overdueCount = emp.tasks.filter((t) => t.is_overdue).length;
-          return (
-            <Link to={`/employees/${emp.id}`} key={emp.id} className="employee-card">
-              <h3>
-                {emp.full_name}
-                {overdueCount > 0 && (
-                  <span className="tag-overdue">
-                    {overdueCount} overdue
-                  </span>
-                )}
-              </h3>
-              <p className="muted">
-                {emp.job_title || "—"} {emp.department ? `· ${emp.department}` : ""}
-              </p>
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${progress?.percent_complete ?? 0}%` }}
-                />
-              </div>
-              <p className="muted small">
-                {progress ? `${progress.completed_tasks}/${progress.total_tasks} tasks done` : "..."}
-              </p>
-            </Link>
-          );
-            })}
-          </div>
-        );
-      })()}
+      {!loading && employees.length > 0 && filtered.length === 0 && (
+        <p className="empty-state">No employees match "{search}".</p>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <div className="card-grid">
+          {filtered.map((emp) => {
+            const progress = progressById[emp.id];
+            const overdueCount = emp.tasks.filter((t) => t.is_overdue).length;
+            return (
+              <Link to={`/employees/${emp.id}`} key={emp.id} className="employee-card">
+                <div className="employee-card-top">
+                  <span className="avatar">{initialsOf(emp.full_name)}</span>
+                  <span className="employee-card-name">{emp.full_name}</span>
+                </div>
+                <p className="muted">
+                  {emp.job_title || "—"} {emp.department ? `· ${emp.department}` : ""}
+                  {overdueCount > 0 && (
+                    <span className="tag-overdue">{overdueCount} overdue</span>
+                  )}
+                </p>
+                <div className="progress-bar">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${progress?.percent_complete ?? 0}%` }}
+                  />
+                </div>
+                <p className="muted small">
+                  {progress
+                    ? `${progress.completed_tasks}/${progress.total_tasks} tasks done · ${progress.percent_complete}%`
+                    : "..."}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </Layout>
   );
 }
