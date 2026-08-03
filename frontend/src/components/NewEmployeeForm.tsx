@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
+import { useToast } from "./Toast";
 import type { Template, User } from "../types";
 
 export default function NewEmployeeForm({
@@ -19,6 +20,7 @@ export default function NewEmployeeForm({
   const [managers, setManagers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     api
@@ -40,6 +42,14 @@ export default function NewEmployeeForm({
         template_id: templateId ? Number(templateId) : null,
         manager_id: managerId ? Number(managerId) : null,
       });
+      showToast(`${fullName} was added to onboarding.`);
+      setFullName("");
+      setEmail("");
+      setJobTitle("");
+      setDepartment("");
+      setStartDate("");
+      setTemplateId("");
+      setManagerId("");
       onCreated();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to create employee");

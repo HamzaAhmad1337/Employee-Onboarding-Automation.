@@ -4,6 +4,7 @@ import { FileText, Pencil, Trash2, Upload } from "lucide-react";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
 import type { Document, Employee, TaskStatus, User } from "../types";
 
 const STATUS_OPTIONS: TaskStatus[] = ["pending", "in_progress", "done", "blocked"];
@@ -36,6 +37,7 @@ export default function EmployeeDetail() {
   });
   const [managers, setManagers] = useState<User[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
+  const { showToast } = useToast();
 
   async function load() {
     const [empRes, docsRes] = await Promise.all([
@@ -55,8 +57,10 @@ export default function EmployeeDetail() {
     try {
       const res = await api.patch<Employee>(`/employees/${id}/tasks/${taskId}`, { status });
       setEmployee(res.data);
+      showToast(`Task marked ${status.replace("_", " ")}.`);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Could not update task");
+      showToast("Could not update task", "error");
     }
   }
 
@@ -90,8 +94,10 @@ export default function EmployeeDetail() {
       });
       const docsRes = await api.get<Document[]>(`/employees/${id}/documents`);
       setDocuments(docsRes.data);
+      showToast(`${file.name} uploaded.`);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Upload failed");
+      showToast(err.response?.data?.detail || "Upload failed", "error");
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -128,6 +134,7 @@ export default function EmployeeDetail() {
       });
       setEmployee(res.data);
       setEditing(false);
+      showToast("Changes saved.");
     } catch (err: any) {
       setError(err.response?.data?.detail || "Could not save changes");
     } finally {
@@ -141,6 +148,7 @@ export default function EmployeeDetail() {
     }
     try {
       await api.delete(`/employees/${id}`);
+      showToast(`${employee?.full_name} was removed.`);
       navigate("/");
     } catch (err: any) {
       setError(err.response?.data?.detail || "Could not delete employee");

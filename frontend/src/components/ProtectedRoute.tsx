@@ -10,7 +10,8 @@ export default function ProtectedRoute({
   children: ReactNode;
   allow?: Role[];
 }) {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
+  if (!ready) return <div className="boot-screen" />;
   if (!user) return <Navigate to="/login" replace />;
   if (allow && !allow.includes(user.role)) return <Navigate to="/" replace />;
   return <>{children}</>;

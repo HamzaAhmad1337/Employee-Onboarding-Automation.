@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
+import { useToast } from "../components/Toast";
 import type { Role, Template } from "../types";
 
 const ROLES: Role[] = ["hr_admin", "manager", "it", "new_hire"];
@@ -21,6 +22,8 @@ export default function Templates() {
     { title: "", assigned_role: "it", due_offset_days: 0 },
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { showToast } = useToast();
 
   async function load() {
     const res = await api.get<Template[]>("/templates");
@@ -70,18 +73,24 @@ export default function Templates() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const cleanedTasks = tasks.filter((t) => t.title.trim());
+    if (cleanedTasks.length === 0) {
+      setError("Add at least one task before saving the template.");
+      return;
+    }
     const body = {
       name,
       department: department || null,
-      task_definitions: tasks
-        .filter((t) => t.title.trim())
-        .map((t, i) => ({ ...t, order: i })),
+      task_definitions: cleanedTasks.map((t, i) => ({ ...t, order: i })),
     };
+    setSubmitting(true);
     try {
       if (editingId !== null) {
         await api.put(`/templates/${editingId}`, body);
+        showToast(`"${name}" updated.`);
       } else {
         await api.post("/templates", body);
+        showToast(`"${name}" template created.`);
       }
       resetForm();
       load();
@@ -90,10 +99,12 @@ export default function Templates() {
         err.response?.data?.detail ||
           `Failed to ${editingId !== null ? "update" : "create"} template`
       );
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: number, name: string) {
     if (!window.confirm("Delete this template? Employees already using it keep their tasks.")) {
       return;
     }
@@ -101,6 +112,7 @@ export default function Templates() {
     try {
       await api.delete(`/templates/${id}`);
       if (editingId === id) resetForm();
+      showToast(`"${name}" deleted.`);
       load();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to delete template");
@@ -168,7 +180,9 @@ export default function Templates() {
           Add task
         </button>
         <div>
-          <button type="submit">{editingId !== null ? "Update template" : "Save template"}</button>{" "}
+          <button type="submit" disabled={submitting}>
+            {submitting ? "Saving..." : editingId !== null ? "Update template" : "Save template"}
+          </button>{" "}
           {editingId !== null && (
             <button type="button" className="link-btn" onClick={resetForm}>
               Cancel edit
@@ -193,7 +207,7 @@ export default function Templates() {
                   <Pencil size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
                   Edit
                 </button>
-                <button className="secondary danger-hover" onClick={() => handleDelete(t.id)}>
+                <button className="secondary danger-hover" onClick={() => handleDelete(t.id, t.name)}>
                   <Trash2 size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
                   Delete
                 </button>

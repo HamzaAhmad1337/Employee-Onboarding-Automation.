@@ -1,15 +1,19 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user, ready } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (ready && user) {
+    return <Navigate to="/" replace />;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
