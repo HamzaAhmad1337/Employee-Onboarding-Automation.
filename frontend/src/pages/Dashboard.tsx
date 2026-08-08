@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Search, UserPlus, Users } from "lucide-react";
 import Layout from "../components/Layout";
 import { api } from "../api/client";
@@ -64,6 +64,13 @@ export default function Dashboard() {
       )
     : employees;
 
+  // A new hire only ever has one employee record (their own) - skip the
+  // roster UI (search box, "N people onboarding" framing) that only makes
+  // sense when browsing a list, and take them straight to their tasks.
+  if (!loading && user?.role === "new_hire" && employees.length === 1) {
+    return <Navigate to={`/employees/${employees[0].id}`} replace />;
+  }
+
   const totalOverdue = employees.reduce(
     (sum, e) => sum + e.tasks.filter((t) => t.is_overdue).length,
     0
@@ -79,9 +86,11 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <h1>{TITLES[user?.role || ""] || "Dashboard"}</h1>
-          <p className="muted" style={{ marginTop: 4 }}>
-            {employees.length} {employees.length === 1 ? "person" : "people"} onboarding
-          </p>
+          {!(user?.role === "new_hire" && employees.length === 0) && (
+            <p className="muted" style={{ marginTop: 4 }}>
+              {employees.length} {employees.length === 1 ? "person" : "people"} onboarding
+            </p>
+          )}
         </div>
         {user?.role === "hr_admin" && (
           <button onClick={() => setShowForm((s) => !s)}>
@@ -138,7 +147,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!loading && employees.length === 0 && (
+      {!loading && employees.length === 0 && user?.role === "new_hire" && (
+        <p className="empty-state">
+          Your onboarding record hasn't been linked to this account yet. Check with HR — this
+          usually resolves itself once they create your employee record with this email address.
+        </p>
+      )}
+
+      {!loading && employees.length === 0 && user?.role !== "new_hire" && (
         <p className="empty-state">Nothing here yet.</p>
       )}
 
